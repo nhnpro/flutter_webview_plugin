@@ -76,11 +76,11 @@ class WebviewManager {
     Activity activity;
     ResultHandler resultHandler;
 
-    WebviewManager(final Activity activity) {
+    WebviewManager(final Activity activity, Map<String, String> schemas) {
         this.webView = new ObservableWebView(activity);
         this.activity = activity;
         this.resultHandler = new ResultHandler();
-        WebViewClient webViewClient = new BrowserClient();
+        WebViewClient webViewClient = new BrowserClient(activity, schemas);
         webView.setOnKeyListener(new View.OnKeyListener() {
             @Override
             public boolean onKey(View v, int keyCode, KeyEvent event) {
@@ -335,6 +335,12 @@ class WebviewManager {
     }
 
     void stopLoading(MethodCall call, MethodChannel.Result result){
+        if (webView != null){
+            webView.stopLoading();
+        }
+    }
+
+    void handleSchemas(MethodCall call, MethodChannel.Result result) {
         if (webView != null){
             webView.stopLoading();
         }

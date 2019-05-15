@@ -4,7 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-const _kChannel = 'flutter_webview_plugin';
+const _kChannel = 'flutter_webview_plugin_enhance';
 
 // TODO: more general state for iOS/android
 enum WebViewState { shouldStart, startLoad, finishLoad }
@@ -141,6 +141,14 @@ class FlutterWebviewPlugin {
       };
     }
     await _channel.invokeMethod('launch', args);
+  }
+
+  /// beck add: Support add host app to handle schema
+  Future<String> handleSchemas(schemas) async {
+    final args = {};
+    args['schemas'] = schemas;
+    final res = await _channel.invokeMethod('handleSchemas', args);
+    return res;
   }
 
   /// Execute Javascript inside webview

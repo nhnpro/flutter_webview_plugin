@@ -3,7 +3,7 @@
 //
 
 #import "GeneratedPluginRegistrant.h"
-#import <flutter_webview_plugin/FlutterWebviewPlugin.h>
+#import <flutter_webview_plugin_enhance/FlutterWebviewPlugin.h>
 
 @implementation GeneratedPluginRegistrant
 

@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
+import android.util.Log;
 import android.view.Display;
 import android.widget.FrameLayout;
 import android.webkit.CookieManager;
@@ -25,7 +26,7 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     private Activity activity;
     private WebviewManager webViewManager;
     static MethodChannel channel;
-    private static final String CHANNEL_NAME = "flutter_webview_plugin";
+    private static final String CHANNEL_NAME = "flutter_webview_plugin_enhance";
 
     public static void registerWith(PluginRegistry.Registrar registrar) {
         channel = new MethodChannel(registrar.messenger(), CHANNEL_NAME);
@@ -41,6 +42,8 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     @Override
     public void onMethodCall(MethodCall call, MethodChannel.Result result) {
         switch (call.method) {
+            case "handleSchemas":
+                handleSchemas(call, result);
             case "launch":
                 openUrl(call, result);
                 break;
@@ -83,6 +86,20 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
         }
     }
 
+    /**
+     * beck add for custom schema handle
+     * @param call
+     * @param result
+     */
+    private void handleSchemas(MethodCall call, MethodChannel.Result result) {
+        Log.d(CHANNEL_NAME, "handleSchemas");
+        if (webViewManager == null || webViewManager.closed == true) {
+            Map<String, String> maps = call.argument("schemas");
+            webViewManager = new WebviewManager(activity, maps);
+        }
+        result.success(null);
+    }
+
     private void openUrl(MethodCall call, MethodChannel.Result result) {
         boolean hidden = call.argument("hidden");
         String url = call.argument("url");
@@ -99,7 +116,7 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
         boolean allowFileURLs = call.argument("allowFileURLs");
 
         if (webViewManager == null || webViewManager.closed == true) {
-            webViewManager = new WebviewManager(activity);
+            webViewManager = new WebviewManager(activity, null);
         }
 
         FrameLayout.LayoutParams params = buildLayoutParams(call);
@@ -160,8 +177,10 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
      * Navigates back on the Webview.
      */
     private void back(MethodCall call, MethodChannel.Result result) {
-        if (webViewManager != null) {
+        if (webViewManager != null && webViewManager.canGoBack()) {
             webViewManager.back(call, result);
+        } else {
+            result.error("cannot go back", "", "");
         }
     }
 

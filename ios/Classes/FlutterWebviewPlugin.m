@@ -1,12 +1,13 @@
 #import "FlutterWebviewPlugin.h"
 
-static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
+static NSString *const CHANNEL_NAME = @"flutter_webview_plugin_enhance";
 
 // UIWebViewDelegate
 @interface FlutterWebviewPlugin() <WKNavigationDelegate, UIScrollViewDelegate> {
     BOOL _enableAppScheme;
     BOOL _enableZoom;
 }
+@property (nonatomic, retain) NSDictionary *schemas;
 @end
 
 @implementation FlutterWebviewPlugin
@@ -36,6 +37,9 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         else
             [self navigate:call];
         result(nil);
+    } else if ([@"handleSchemas" isEqualToString:call.method]) {
+        [self handleSchemas: call];
+        result(nil);
     } else if ([@"close" isEqualToString:call.method]) {
         [self closeWebView];
         result(nil);
@@ -61,8 +65,12 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     } else if ([@"cleanCookies" isEqualToString:call.method]) {
         [self cleanCookies];
     } else if ([@"back" isEqualToString:call.method]) {
-        [self back];
-        result(nil);
+        if ([self canGoBack]) {
+            [self back];
+            result(nil);
+        } else {
+            result([FlutterError errorWithCode:@"cannot go back" message:@"" details:@""]);
+        }
     } else if ([@"forward" isEqualToString:call.method]) {
         [self forward];
         result(nil);
@@ -71,6 +79,15 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         result(nil);
     } else {
         result(FlutterMethodNotImplemented);
+    }
+}
+
+// beck add: Support add host app to handle schema
+- (void)handleSchemas:(FlutterMethodCall*)call {
+    NSDictionary *schemas = call.arguments[@"schemas"];
+    NSLog(@"handleSchemas %d", schemas.count);
+    if (schemas != nil) {
+        self.schemas = schemas;
     }
 }
 
@@ -213,6 +230,12 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         [self.webview stopLoading];
     }
 }
+- (BOOL)canGoBack {
+    if (self.webview != nil && self.webview.canGoBack) {
+        return YES;
+    }
+    return NO;
+}
 - (void)back {
     if (self.webview != nil) {
         [self.webview goBack];
@@ -234,10 +257,45 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         }];
 }
 
+// beck add for handle custom app schema
+- (BOOL)doHandleSchema:(NSURL *) url {
+    NSString *schema = url.scheme;
+    //NSLog(@"doHandle shema %@", schema);
+    if (self.schemas != nil && schema != nil) {
+        NSArray *array = [self.schemas allValues];
+        for (int i = 0; i < array.count; i++) {
+            //根据键值处理字典中的每一项
+            NSString *value = array[i];
+            //NSLog(@"my schema: %@", value);
+            if ([value isEqualToString: schema]) {
+                //NSLog(@"has handle url %@", schema);
+                UIApplication *application = [UIApplication sharedApplication];
+                if ([schema isEqualToString:@"tel"]) {
+                    NSString *resourceSpecifier = [url resourceSpecifier];
+                    NSString *callphone = [NSString stringWithFormat:@"telprompt://%@", resourceSpecifier];
+                    dispatch_async(dispatch_get_global_queue(0, 0), ^{
+                        [application openURL:[NSURL URLWithString:callphone]];
+                    });
+                } else {
+                    if ([application canOpenURL:url]) {
+                        [application openURL: url];
+                    }
+                }
+                return YES;
+            }
+        }
+    }
+    return NO;
+}
+
 #pragma mark -- WkWebView Delegate
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction
     decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
-
+    //NSLog(@"webview plugin decide policy %@，%@", webView.URL, navigationAction.request.URL);
+    if ([self doHandleSchema: navigationAction.request.URL]) {
+        decisionHandler(WKNavigationActionPolicyCancel);
+        return;
+    };
     id data = @{@"url": navigationAction.request.URL.absoluteString,
                 @"type": @"shouldStart",
                 @"navigationType": [NSNumber numberWithInt:navigationAction.navigationType]};

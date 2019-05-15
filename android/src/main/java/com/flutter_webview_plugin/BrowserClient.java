@@ -1,6 +1,10 @@
 package com.flutter_webview_plugin;
 
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.net.Uri;
+import android.util.Log;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
@@ -14,8 +18,13 @@ import java.util.Map;
  */
 
 public class BrowserClient extends WebViewClient {
-    public BrowserClient() {
+    Context context;
+    Map<String, String> schemas;
+
+    public BrowserClient(Context context, Map<String, String> schemas) {
         super();
+        this.context = context;
+        this.schemas = schemas;
     }
 
     @Override
@@ -47,5 +56,28 @@ public class BrowserClient extends WebViewClient {
         data.put("url", request.getUrl().toString());
         data.put("code", Integer.toString(errorResponse.getStatusCode()));
         FlutterWebviewPlugin.channel.invokeMethod("onHttpError", data);
+    }
+
+    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        if (schemas != null && schemas.size() > 0) {
+            for (String schema: schemas.values()) {
+                if (url.startsWith(schema)) {
+                    try {
+                        // 以下固定写法
+                        final Intent intent = new Intent(Intent.ACTION_VIEW,
+                                Uri.parse(url));
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                        context.startActivity(intent);
+                        return true;
+                    } catch (Exception e) {
+                        // 防止没有安装的情况
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+        return super.shouldOverrideUrlLoading(view, url);
     }
 }
